@@ -1,5 +1,7 @@
 provider "aws" {
   region = "us-west-1"
+  access_key = var.aws_access_key
+  secret_key = var.aws_secret_key
 }
 
 resource "aws_sns_topic" "topic1" {
@@ -9,7 +11,6 @@ resource "aws_sns_topic" "topic1" {
 resource "aws_sns_topic" "topic2" {
   name = "another_topic"
 }
-
 
 resource "aws_iam_role" "ec2_sns_role" {
   name = "ec2_sns_role"
@@ -41,7 +42,7 @@ resource "aws_iam_policy" "sns_access_policy" {
           "sns:Receive",
           "sns:ListSubscriptionsByTopic"
         ]
-        Resource = aws_sns_topic.example_topic1.arn
+        Resource = aws_sns_topic.topic1.arn
       },
     ]
   })
@@ -95,7 +96,7 @@ resource "aws_route_table_association" "public_association" {
 resource "aws_subnet" "public" {
   vpc_id            = aws_vpc.main.id
   cidr_block        = "10.0.1.0/24"
-  availability_zone = "us-west-1a"
+  availability_zone = "us-west-1b"
 }
 
 resource "aws_security_group" "allow_all" {
@@ -138,7 +139,7 @@ resource "aws_iam_instance_profile" "ec2_instance_profile" {
 }
 
 resource "aws_sns_topic_subscription" "flask_app_subscription" {
-  topic_arn = aws_sns_topic.example_topic1.arn
+  topic_arn = aws_sns_topic.topic1.arn
   protocol  = "http"
   endpoint  = "http://${aws_instance.flask_app.public_ip}:5000/"
 }
