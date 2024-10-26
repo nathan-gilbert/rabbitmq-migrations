@@ -2,6 +2,8 @@ provider "aws" {
   region = "us-west-1"
 }
 
+data "aws_caller_identity" "current" {}
+
 resource "aws_sns_topic" "example_topic1" {
   name = "my_example_topic1"
 }
@@ -37,7 +39,15 @@ resource "aws_iam_policy" "sns_access_policy" {
           "sns:ListSubscriptionsByTopic"
         ]
         Resource = aws_sns_topic.example_topic1.arn
-      }
+      },
+      {
+        Effect = "Allow",
+        Principal = {
+          AWS: "arn:aws:iam::${data.aws_caller_identity.current.account_id}:root"
+        },
+        Action = "sns:*",
+        Resource = "*"
+      },
     ]
   })
 }
@@ -63,39 +73,64 @@ resource "aws_key_pair" "ec2_instance_key_pair" {
   }
 }
 
+resource "aws_vpc" "main" {
+  cidr_block = "10.0.0.0/16"
+  enable_dns_support   = true
+  enable_dns_hostnames = true
+}
+
+resource "aws_internet_gateway" "igw" {
+  vpc_id = aws_vpc.main.id
+}
+
+resource "aws_route_table" "public" {
+  vpc_id = aws_vpc.main.id
+
+  route {
+    cidr_block = "0.0.0.0/0"
+    gateway_id = aws_internet_gateway.igw.id
+  }
+}
+
+resource "aws_route_table_association" "public_association" {
+  subnet_id      = aws_subnet.public.id
+  route_table_id = aws_route_table.public.id
+}
+
+resource "aws_subnet" "public" {
+  vpc_id            = aws_vpc.main.id
+  cidr_block        = "10.0.1.0/24"
+  availability_zone = "us-west-1b"
+}
+
+resource "aws_security_group" "allow_all" {
+  vpc_id = aws_vpc.main.id
+
+  ingress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+}
+
+
 resource "aws_instance" "flask_app" {
   ami           = "ami-0da424eb883458071" # Ubuntu 22.04
   instance_type = "t2.micro"
   iam_instance_profile = aws_iam_instance_profile.ec2_instance_profile.name
   associate_public_ip_address = true
+  subnet_id                   = aws_subnet.public.id
+  vpc_security_group_ids      = [aws_security_group.allow_all.id]
   key_name                    = aws_key_pair.ec2_instance_key_pair.id
-
-  user_data = <<-EOF
-    #!/bin/bash
-    apt update -y
-    apt install -y python3 python3-pip
-    pip3 install flask boto3
-    cat <<EOL > /home/ubuntu/app.py
-    from flask import Flask, request
-    import boto3
-    import json
-
-    app = Flask(__name__)
-
-    @app.route("/", methods=["GET", "POST"])
-    def sns_handler():
-        if request.method == "POST":
-            message = json.loads(request.data)
-            print("Received message:", message)
-            return "Message received", 200
-        return "SNS Subscription Active", 200
-
-    if __name__ == "__main__":
-        app.run(host="0.0.0.0", port=5000)
-    EOL
-
-    nohup python3 /home/ubuntu/app.py &
-  EOF
+  user_data                   = templatefile("${path.module}/user_data.tpl", {})
 
   tags = {
     Name = var.instance_name
