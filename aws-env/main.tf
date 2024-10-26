@@ -1,5 +1,5 @@
 provider "aws" {
-  region = "us-west-1"
+  region = var.aws_region
   access_key = var.aws_access_key
   secret_key = var.aws_secret_key
 }
@@ -40,7 +40,8 @@ resource "aws_iam_policy" "sns_access_policy" {
         Action   = [
           "sns:Subscribe",
           "sns:Receive",
-          "sns:ListSubscriptionsByTopic"
+          "sns:ListSubscriptionsByTopic",
+          "sns:ConfirmSubscription"
         ]
         Resource = aws_sns_topic.topic1.arn
       },
@@ -126,7 +127,7 @@ resource "aws_instance" "flask_app" {
   subnet_id                   = aws_subnet.public.id
   vpc_security_group_ids      = [aws_security_group.allow_all.id]
   key_name                    = aws_key_pair.ec2_instance_key_pair.id
-  user_data                   = templatefile("${path.module}/user_data.tpl", {})
+  user_data                   = templatefile("${path.module}/user_data.tpl", {aws_region=var.aws_region})
 
   tags = {
     Name = var.instance_name
