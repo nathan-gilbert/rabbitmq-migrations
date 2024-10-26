@@ -98,7 +98,7 @@ resource "aws_instance" "flask_app" {
   EOF
 
   tags = {
-    Name = "FlaskAppSNS"
+    Name = var.instance_name
   }
 }
 
