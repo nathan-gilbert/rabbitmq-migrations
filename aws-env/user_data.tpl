@@ -1,7 +1,6 @@
 #!/bin/bash
 apt update -y
-apt install -y python3 python3-pip
-pip3 install flask boto3
+apt install -y python3 python3-pip python3-flask python3-boto3
 
 cat <<EOL > /home/ubuntu/app.py
 from flask import Flask, request

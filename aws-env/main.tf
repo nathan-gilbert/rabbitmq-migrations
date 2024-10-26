@@ -2,11 +2,14 @@ provider "aws" {
   region = "us-west-1"
 }
 
-data "aws_caller_identity" "current" {}
-
-resource "aws_sns_topic" "example_topic1" {
-  name = "my_example_topic1"
+resource "aws_sns_topic" "topic1" {
+  name = "flask_app_topic"
 }
+
+resource "aws_sns_topic" "topic2" {
+  name = "another_topic"
+}
+
 
 resource "aws_iam_role" "ec2_sns_role" {
   name = "ec2_sns_role"
@@ -39,14 +42,6 @@ resource "aws_iam_policy" "sns_access_policy" {
           "sns:ListSubscriptionsByTopic"
         ]
         Resource = aws_sns_topic.example_topic1.arn
-      },
-      {
-        Effect = "Allow",
-        Principal = {
-          AWS: "arn:aws:iam::${data.aws_caller_identity.current.account_id}:root"
-        },
-        Action = "sns:*",
-        Resource = "*"
       },
     ]
   })
@@ -100,7 +95,7 @@ resource "aws_route_table_association" "public_association" {
 resource "aws_subnet" "public" {
   vpc_id            = aws_vpc.main.id
   cidr_block        = "10.0.1.0/24"
-  availability_zone = "us-west-1b"
+  availability_zone = "us-west-1a"
 }
 
 resource "aws_security_group" "allow_all" {
